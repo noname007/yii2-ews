@@ -1,0 +1,25 @@
+{
+    "name": "noname007/yii2-ews",
+    "description": "a simple wrapper for php-ews",
+    "type": "yii2-extension",
+    "require": {
+        "php-ews/php-ews": "^1.0",
+        "yiisoft/yii2": "^2.0"
+    },
+    "license": "LGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "soul11201",
+            "email": "soul11201@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {"noname007\\yii2ews": "src/"}
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://asset-packagist.org"
+        }
+    ]
+}
