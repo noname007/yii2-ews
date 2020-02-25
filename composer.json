@@ -14,7 +14,7 @@
         }
     ],
     "autoload": {
-        "psr-4": {"noname007\\yii2ews": "src/"}
+        "psr-4": {"noname007\\yii2ews\\": "src/"}
     },
     "repositories": [
         {
