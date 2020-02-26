@@ -78,7 +78,7 @@ class Ews extends Component
 
             $this->setClient($client);
 
-            $this->expiration += $this->client_llt;
+            $this->expiration = $now + $this->client_llt;
         }
 
         return $this->client;
