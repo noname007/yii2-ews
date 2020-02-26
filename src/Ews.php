@@ -5,18 +5,22 @@ namespace noname007\yii2ews;
 
 use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfAllItemsType;
 use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfAttendeesType;
+use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfBaseItemIdsType;
 use jamesiarmes\PhpEws\Client;
 use jamesiarmes\PhpEws\Enumeration\BodyTypeType;
 use jamesiarmes\PhpEws\Enumeration\CalendarItemCreateOrDeleteOperationType;
+use jamesiarmes\PhpEws\Enumeration\DisposalType;
 use jamesiarmes\PhpEws\Enumeration\ResponseClassType;
 use jamesiarmes\PhpEws\Enumeration\RoutingType;
 use jamesiarmes\PhpEws\Request\CreateItemType;
+use jamesiarmes\PhpEws\Request\DeleteItemType;
 use jamesiarmes\PhpEws\Type\AttendeeType;
 use jamesiarmes\PhpEws\Type\BodyType;
 use jamesiarmes\PhpEws\Type\CalendarItemType;
 use jamesiarmes\PhpEws\Type\ConnectingSIDType;
 use jamesiarmes\PhpEws\Type\EmailAddressType;
 use jamesiarmes\PhpEws\Type\ExchangeImpersonationType;
+use jamesiarmes\PhpEws\Type\ItemIdType;
 use noname007\yii2ews\models\Guests;
 use yii\base\Component;
 
@@ -112,6 +116,8 @@ class Ews extends Component
     }
 
     /**
+     * @docs https://docs.microsoft.com/zh-cn/Exchange/client-developer/web-service-reference/createitem-operation-calendar-item
+     *
      * @param \DateTime $start
      * @param \DateTime $end
      * @param           $subject
@@ -171,7 +177,10 @@ class Ews extends Component
             if ($response_message->ResponseClass != ResponseClassType::SUCCESS) {
                 $code = $response_message->ResponseCode;
                 $message = $response_message->MessageText;
-                \Yii::error("Event failed to create with \"$code: $message\"\n");
+                \Yii::error([
+                    'ResponseCode' => $code,
+                    'MessageText' => $message,
+                ]);
                 continue;
             }
 
@@ -183,5 +192,70 @@ class Ews extends Component
         }
 
         return $id;
+    }
+
+
+    /**
+     *
+     * @docs https://docs.microsoft.com/zh-cn/Exchange/client-developer/web-service-reference/deleteitem-operation
+     *
+     * @param $item_id
+     *
+     * @return bool
+     */
+    protected function deleteItem($item_id)
+    {
+        return $this->macro_delete_item($item_id);
+    }
+
+    public function cancelAppointment($item_id)
+    {
+        return
+            $this->macro_delete_item(
+                $item_id,
+                function (DeleteItemType $deleteRequest) {
+                    $deleteRequest->SendMeetingCancellations
+                        = CalendarItemCreateOrDeleteOperationType::SEND_TO_ALL_AND_SAVE_COPY;
+                })
+            ;
+    }
+
+
+    protected function macro_delete_item($item_id, callable $callfunc =null)
+    {
+        $deleteRequest = new DeleteItemType();
+        $deleteRequest->DeleteType = DisposalType::MOVE_TO_DELETED_ITEMS;
+
+        if(is_callable($callfunc))
+        {
+            call_user_func($callfunc, $deleteRequest);
+        }
+
+        $deleteRequest->ItemIds
+            = new NonEmptyArrayOfBaseItemIdsType();
+
+        $item = new ItemIdType();
+        $item->Id = $item_id;
+        $deleteRequest->ItemIds->ItemId[] = $item;
+
+        $response = $this->getClient()->DeleteItem($deleteRequest);
+
+        $response_messages = $response->ResponseMessages->DeleteItemResponseMessage;
+
+        foreach ($response_messages as $responseMessage)
+        {
+            if($responseMessage->ResponseClass == ResponseClassType::SUCCESS){
+                return true;
+            }else{
+                $err_msg = [
+                    'ResponseCode' => $responseMessage->ResponseCode,
+                    'DescriptiveLinkKey' => $responseMessage->DescriptiveLinkKey,
+                    'MessageText' => $responseMessage->MessageText,
+                ];
+                \Yii::error($err_msg);
+                return false;
+            }
+        }
+        return null;
     }
 }

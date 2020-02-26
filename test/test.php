@@ -26,8 +26,12 @@ $guests =[
     ),
 ];
 
-$ews->createAppointment(new DateTime("@".(time() + 15 * 60)),
+$id = $ews->createAppointment(new DateTime("@".(time() + 15 * 60)),
     new DateTime('@'.(time() + 30 * 60)),
     'subject text',
     $guests
 );
+
+var_dump($id);
+
+//$ews->cancelAppointment($id);
