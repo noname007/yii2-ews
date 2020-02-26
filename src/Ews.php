@@ -37,6 +37,28 @@ class Ews extends Component
     protected $version = Client::VERSION_2016;
 
     /**
+     * too long  result to a 940 seconds request on the next ews op request,
+     * need to be renewed
+     *
+     * @var int client longest live time
+     */
+    protected $client_llt = 600;
+
+    /**
+     * @param int $client_llt
+     */
+    public function setClientLlt($client_llt)
+    {
+        $this->client_llt = $client_llt;
+    }
+
+
+    /**
+     * @var int expire at the {$expiration} (timestamps)
+     */
+    private $expiration = 0;
+
+    /**
      * @var Client
      */
     private $client;
@@ -46,13 +68,17 @@ class Ews extends Component
      */
     public function getClient()
     {
-        if(!$this->client)
+        $now = time();
+        
+        if($this->expiration < $now || !$this->client)
         {
             $client = new \jamesiarmes\PhpEws\Client($this->host, $this->username, $this->password, $this->version);
 
             $client->setTimezone($this->timezone);
 
             $this->setClient($client);
+
+            $this->expiration += $this->client_llt;
         }
 
         return $this->client;
