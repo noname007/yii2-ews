@@ -26,6 +26,8 @@ use yii\base\Component;
 
 class Ews extends Component
 {
+    public $curl_opt = [];
+
     protected $host;
 
     protected $username;
@@ -69,15 +71,13 @@ class Ews extends Component
     public function getClient()
     {
         $now = time();
-        
         if($this->expiration < $now || !$this->client)
         {
             $client = new \jamesiarmes\PhpEws\Client($this->host, $this->username, $this->password, $this->version);
-
+            $client->setCurlOptions($this->curl_opt);
             $client->setTimezone($this->timezone);
 
             $this->setClient($client);
-
             $this->expiration = $now + $this->client_llt;
         }
 
