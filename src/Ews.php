@@ -26,8 +26,6 @@ use yii\base\Component;
 
 class Ews extends Component
 {
-    public $curl_opt = [];
-
     protected $host;
 
     protected $username;
@@ -65,6 +63,17 @@ class Ews extends Component
      */
     private $client;
 
+    protected $curl_opt = [];
+
+    /**
+     * @param array $curl_opt
+     */
+    public function setCurlOpt($curl_opt)
+    {
+        $this->curl_opt = $curl_opt;
+    }
+
+    
     /**
      * @return Client
      */
