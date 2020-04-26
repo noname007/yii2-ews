@@ -163,11 +163,12 @@ class Ews extends Component
      *
      * @return string|null
      */
-    public function createAppointment(\DateTime $start, \DateTime $end, $subject, $guests = [], $body = '', $body_type = BodyTypeType::TEXT)
+    public function createAppointment(\DateTime $start, \DateTime $end, $subject, $guests = [], $body = '', $body_type = BodyTypeType::TEXT, callable  $moidify_request_call = null)
     {
         //Build the request,
         $request = new CreateItemType();
-        $request->SendMeetingInvitations = CalendarItemCreateOrDeleteOperationType::SEND_ONLY_TO_ALL;
+
+        $request->SendMeetingInvitations = CalendarItemCreateOrDeleteOperationType::SEND_TO_ALL_AND_SAVE_COPY;
         $request->Items = new NonEmptyArrayOfAllItemsType();
 
         // Build the event to be added.
@@ -195,6 +196,12 @@ class Ews extends Component
             $attendee->Mailbox->Name = $guest['name'];
             $attendee->Mailbox->RoutingType = RoutingType::SMTP;
             $event->RequiredAttendees->Attendee[] = $attendee;
+        }
+
+        if(is_callable($moidify_request_call)) {
+            if(!call_user_func($moidify_request_call, $request, $event)) {
+                return null;
+            }
         }
 
         // Add the event to the request. You could add multiple events to create more
