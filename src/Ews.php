@@ -6,21 +6,29 @@ namespace noname007\yii2ews;
 use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfAllItemsType;
 use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfAttendeesType;
 use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfBaseItemIdsType;
+use jamesiarmes\PhpEws\ArrayType\NonEmptyArrayOfItemChangeDescriptionsType;
 use jamesiarmes\PhpEws\Client;
 use jamesiarmes\PhpEws\Enumeration\BodyTypeType;
 use jamesiarmes\PhpEws\Enumeration\CalendarItemCreateOrDeleteOperationType;
+use jamesiarmes\PhpEws\Enumeration\CalendarItemUpdateOperationType;
+use jamesiarmes\PhpEws\Enumeration\ConflictResolutionType;
 use jamesiarmes\PhpEws\Enumeration\DisposalType;
 use jamesiarmes\PhpEws\Enumeration\ResponseClassType;
 use jamesiarmes\PhpEws\Enumeration\RoutingType;
+use jamesiarmes\PhpEws\Enumeration\UnindexedFieldURIType;
 use jamesiarmes\PhpEws\Request\CreateItemType;
 use jamesiarmes\PhpEws\Request\DeleteItemType;
+use jamesiarmes\PhpEws\Request\UpdateItemType;
 use jamesiarmes\PhpEws\Type\AttendeeType;
 use jamesiarmes\PhpEws\Type\BodyType;
 use jamesiarmes\PhpEws\Type\CalendarItemType;
 use jamesiarmes\PhpEws\Type\ConnectingSIDType;
 use jamesiarmes\PhpEws\Type\EmailAddressType;
 use jamesiarmes\PhpEws\Type\ExchangeImpersonationType;
+use jamesiarmes\PhpEws\Type\ItemChangeType;
 use jamesiarmes\PhpEws\Type\ItemIdType;
+use jamesiarmes\PhpEws\Type\PathToUnindexedFieldType;
+use jamesiarmes\PhpEws\Type\SetItemFieldType;
 use noname007\yii2ews\models\Guests;
 use yii\base\Component;
 
@@ -236,6 +244,105 @@ class Ews extends Component
         return $id;
     }
 
+    public function updateAppointment($item_id, \DateTime $start, \DateTime $end, $subject, $guests = [], $body = '', $body_type = BodyTypeType::TEXT, callable  $moidify_request_call = null) {
+
+        $request = new UpdateItemType();
+        $request->ConflictResolution = ConflictResolutionType::ALWAYS_OVERWRITE;
+        $request->SendMeetingInvitationsOrCancellations = CalendarItemUpdateOperationType::SEND_TO_ALL_AND_SAVE_COPY;
+
+
+            $change = new ItemChangeType();
+            $change->ItemId = new ItemIdType();
+            $change->ItemId->Id = $item_id;
+            $change->Updates = new NonEmptyArrayOfItemChangeDescriptionsType();
+
+            // Set the updated start time.
+            $field = new SetItemFieldType();
+            $field->FieldURI = new PathToUnindexedFieldType();
+            $field->FieldURI->FieldURI = UnindexedFieldURIType::CALENDAR_START;
+            $field->CalendarItem = new CalendarItemType();
+            $field->CalendarItem->Start = $start->format('c');
+            $change->Updates->SetItemField[] = $field;
+
+            // Set the updated end time.
+            $field = new SetItemFieldType();
+            $field->FieldURI = new PathToUnindexedFieldType();
+            $field->FieldURI->FieldURI = UnindexedFieldURIType::CALENDAR_END;
+            $field->CalendarItem = new CalendarItemType();
+            $field->CalendarItem->End = $end->format('c');
+            $change->Updates->SetItemField[] = $field;
+
+
+            $field = new SetItemFieldType();
+            $field->FieldURI = new PathToUnindexedFieldType();
+            $field->FieldURI->FieldURI = UnindexedFieldURIType::ITEM_SUBJECT;
+            $field->CalendarItem = new CalendarItemType();
+            $field->CalendarItem->Subject = $subject;
+
+            $change->Updates->SetItemField[] = $field;
+
+            $field = new SetItemFieldType();
+            $field->FieldURI = new PathToUnindexedFieldType();
+            $field->FieldURI->FieldURI = UnindexedFieldURIType::ITEM_BODY;
+            $field->CalendarItem = new CalendarItemType();
+            $field->CalendarItem->Body = new BodyType();
+            $field->CalendarItem->Body->_ = $body;
+            $field->CalendarItem->Body->BodyType = $body_type;
+
+            $change->Updates->SetItemField[] = $field;
+
+
+            $field = new SetItemFieldType();
+            $field->FieldURI = new PathToUnindexedFieldType();
+            $field->FieldURI->FieldURI = UnindexedFieldURIType::CALENDAR_REQUIRED_ATTENDEES;
+            $field->CalendarItem = new CalendarItemType();
+            $field->CalendarItem->RequiredAttendees = new NonEmptyArrayOfAttendeesType();
+
+            foreach ($guests as $guest) {
+                $attendee = new AttendeeType();
+                $attendee->Mailbox = new EmailAddressType();
+                $attendee->Mailbox->EmailAddress = $guest['email'];
+                $attendee->Mailbox->Name = $guest['name'];
+                $attendee->Mailbox->RoutingType = RoutingType::SMTP;
+                $field->CalendarItem->RequiredAttendees->Attendee[] = $attendee;
+            }
+
+            $change->Updates->SetItemField[] = $field;
+
+            if($moidify_request_call) {
+                if(!call_user_func($moidify_request_call, $request, $change)){
+                    return false;
+                }
+            }
+
+        $request->ItemChanges[] = $change;
+
+        $response = $this->getClient()->UpdateItem($request);
+
+        $id = null;
+        $response_messages = $response->ResponseMessages->UpdateItemResponseMessage;
+
+        foreach ($response_messages as $response_message) {
+            // Make sure the request succeeded.
+            if ($response_message->ResponseClass != ResponseClassType::SUCCESS) {
+                $code = $response_message->ResponseCode;
+                $message = $response_message->MessageText;
+                \Yii::error([
+                    'ResponseCode' => $code,
+                    'MessageText' => $message,
+                ]);
+                continue;
+            }
+
+            // Iterate over the updated events, printing the id of each.
+            foreach ($response_message->Items->CalendarItem as $item) {
+                $id = $item->ItemId->Id;
+                \Yii::info("Updated event $id");
+            }
+        }
+
+        return $id;
+    }
 
     /**
      *
