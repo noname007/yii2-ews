@@ -244,6 +244,20 @@ class Ews extends Component
         return $id;
     }
 
+    /**
+     * @docs https://docs.microsoft.com/zh-cn/Exchange/client-developer/web-service-reference/updateitem-operation
+     * @docs https://docs.microsoft.com/zh-cn/Exchange/client-developer/web-service-reference/setitemfield
+     * @param               $item_id
+     * @param \DateTime     $start
+     * @param \DateTime     $end
+     * @param               $subject
+     * @param array         $guests
+     * @param string        $body
+     * @param string        $body_type
+     * @param callable|null $moidify_request_call
+     *
+     * @return bool|string|null
+     */
     public function updateAppointment($item_id, \DateTime $start, \DateTime $end, $subject, $guests = [], $body = '', $body_type = BodyTypeType::TEXT, callable  $moidify_request_call = null) {
 
         $request = new UpdateItemType();
