@@ -18,6 +18,8 @@ use jamesiarmes\PhpEws\Enumeration\RoutingType;
 use jamesiarmes\PhpEws\Enumeration\UnindexedFieldURIType;
 use jamesiarmes\PhpEws\Request\CreateItemType;
 use jamesiarmes\PhpEws\Request\DeleteItemType;
+use jamesiarmes\PhpEws\Request\ExpandDLType;
+use jamesiarmes\PhpEws\Request\ResolveNamesType;
 use jamesiarmes\PhpEws\Request\UpdateItemType;
 use jamesiarmes\PhpEws\Type\AttendeeType;
 use jamesiarmes\PhpEws\Type\BodyType;
@@ -383,6 +385,114 @@ class Ews extends Component
             ;
     }
 
+    /**
+     * @docs https://docs.microsoft.com/zh-cn/exchange/client-developer/web-service-reference/resolvenames-operation?redirectedfrom=MSDN
+     * @param               $entry
+     * @param callable|null $moidify_request_call
+     *
+     * @return []
+     */
+    public function resolveNames($entry, callable  $moidify_request_call = null) {
+
+        $client = $this->getClient();
+        $request = new ResolveNamesType();
+
+        $request->UnresolvedEntry = $entry;
+
+        if(is_callable($moidify_request_call)) {
+            if(!call_user_func($moidify_request_call, $request)) {
+                return null;
+            }
+        }
+
+        $response = $client->ResolveNames($request);
+
+        $response_messages = $response->ResponseMessages->ResolveNamesResponseMessage;
+
+        $result = [];
+
+        foreach ($response_messages as $response_message) {
+            // Make sure the request succeeded.
+            if ($response_message->ResponseClass != ResponseClassType::SUCCESS) {
+                $code = $response_message->ResponseCode;
+                $message = $response_message->MessageText;
+
+                \Yii::error([
+                    'ResponseCode' => $code,
+                    'MessageText' => $message,
+                ]);
+                continue;
+            }
+
+            // Iterate over the created events, printing the id for each.
+            foreach ($response_message->ResolutionSet->Resolution as $resolutionType) {
+                if($resolutionType->Mailbox) {
+                    $result[] = [
+                        'name' => $resolutionType->Mailbox->Name,
+                        'email' => $resolutionType->Mailbox->EmailAddress,
+                    ];
+                }else if($resolutionType->Contact) {
+                    //not found this type result
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @docs https://docs.microsoft.com/zh-cn/exchange/client-developer/web-service-reference/expanddl-operation?redirectedfrom=MSDN
+     * @param               $account
+     * @param callable|null $moidify_request_call
+     *
+     * @return array|null
+     */
+    public function expandDl($account, callable  $moidify_request_call = null)
+    {
+        $client = $this->getClient();
+
+        $request = new ExpandDLType();
+
+        $request->Mailbox = new EmailAddressType();
+        $request->Mailbox->EmailAddress = $account;
+
+        if(is_callable($moidify_request_call)) {
+            if(!call_user_func($moidify_request_call, $request)) {
+                return null;
+            }
+        }
+
+        $response =  $client->ExpandDL($request);
+
+
+        $response_messages = $response->ResponseMessages->ExpandDLResponseMessage;
+
+        $result = [];
+        foreach ($response_messages as $response_message) {
+            // Make sure the request succeeded.
+            if ($response_message->ResponseClass != ResponseClassType::SUCCESS) {
+                $code = $response_message->ResponseCode;
+                $message = $response_message->MessageText;
+
+                \Yii::error([
+                    'ResponseCode' => $code,
+                    'MessageText' => $message,
+                ]);
+                continue;
+            }
+            // Iterate over the created events, printing the id for each.
+            foreach ($response_message->DLExpansion->Mailbox as $resolutionType) {
+                $result[] = [
+                    'name' => $resolutionType->Name,
+                    'email' => $resolutionType->EmailAddress,
+                    'mailbox_type' => $resolutionType->MailboxType,
+                ];
+            }
+        }
+
+        return $result;
+
+    }
 
     protected function macro_delete_item($item_id, callable $callfunc =null)
     {
